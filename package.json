@@ -1,0 +1,17 @@
+{
+  "name": "ai-hunter",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev --test-scheduled",
+    "tail": "wrangler tail",
+    "register-commands": "node scripts/register-commands.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  },
+  "dependencies": {
+    "discord-interactions": "^4.4.0"
+  }
+}

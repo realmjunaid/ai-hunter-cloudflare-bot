@@ -1,93 +1,188 @@
-# Ai Hunter Cloudflare Bot
+# Ai Hunter
 
+A Cloudflare Worker that hunts **free AI models and free-access announcements** and posts them to Discord. It runs entirely on Cloudflare's free plan — Workers + Cron Triggers + KV. No server needed.
 
+## What it watches
 
-## Getting started
+| Source | What triggers an alert |
+| --- | --- |
+| **OpenRouter** (`openrouter.ai/api/v1/models`) | A `:free` model is added or removed |
+| **Infron** (`api.infron.ai/v1/models`) | A `:free` model is added or removed |
+| **OpenCode Zen** (`opencode.ai/zen/v1/models`) | A `-free` model is added or removed |
+| **X (Twitter)** — 37 curated accounts | A post from the **last 24 hours** about free model/API access, new releases, or promo campaigns |
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
+Model alerts and X-post alerts can go to **two different Discord channels**.
 
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
+### Smart X-post filter
 
-## Add your files
+Instead of a single keyword, posts must pass a signal-based filter:
 
-* [Create](https://docs.gitlab.com/user/project/repository/web_editor/#create-a-file) or [upload](https://docs.gitlab.com/user/project/repository/web_editor/#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+- **Free-access signal** — `free`, `$0`, `credits`, `trial`, `promo`, `quota`, …
+- **AND a model/API signal** (`model`, `api`, `endpoint`, `tier`, …) **or a release/campaign signal** (`launch`, `limited-time`, `campaign`, `anniversary`, `black friday`, …)
+- **Noise is rejected** — hiring, webinars, podcasts, giveaway spam, `feel free to …`
 
+Only posts published in the **last 24 hours** are considered, so old posts never resurface.
+
+### Discord slash commands
+
+| Command | What it does |
+| --- | --- |
+| `/free` | Shows the current free-model lists (OpenRouter / Infron / Zen) |
+| `/run` | Triggers a check right now |
+| `/watch list` | Lists all watched X accounts |
+| `/watch add @handle` | Adds an X account to the watch list (stored in KV) |
+
+## Prerequisites
+
+- A free [Cloudflare account](https://dash.cloudflare.com/sign-up)
+- [Node.js](https://nodejs.org/) 18 or newer
+- A Discord server where you can create webhooks (and optionally an application for slash commands)
+
+## Setup — step by step
+
+### 1. Install dependencies
+
+```bash
+npm install
 ```
-cd existing_repo
-git remote add origin https://gitlab.com/realmjunaid/ai-hunter-cloudflare-bot.git
-git branch -M main
-git push -uf origin main
+
+### 2. Log in to Cloudflare
+
+```bash
+npx wrangler login
 ```
 
-## Integrate with your tools
+### 3. Create the KV namespace
 
-* [Set up project integrations](https://gitlab.com/realmjunaid/ai-hunter-cloudflare-bot/-/settings/integrations)
+```bash
+npx wrangler kv namespace create KV
+```
 
-## Collaborate with your team
+Copy the `id` from the output into `wrangler.toml`:
 
-* [Invite team members and collaborators](https://docs.gitlab.com/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/user/project/merge_requests/creating_merge_requests/)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/user/project/issues/managing_issues/#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+```toml
+[[kv_namespaces]]
+binding = "KV"
+id = "YOUR_KV_NAMESPACE_ID"
+```
 
-## Test and Deploy
+### 4. Set secrets
 
-Use the built-in continuous integration in GitLab.
+Secrets are never stored in files. Set each one with Wrangler (paste the value when prompted):
 
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/topics/autodevops/requirements/)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ci/environments/protected_environments/)
+```bash
+npx wrangler secret put RUN_KEY
+npx wrangler secret put DISCORD_WEBHOOK_URL
+```
 
-***
+| Secret | Required | Purpose |
+| --- | --- | --- |
+| `RUN_KEY` | Yes | Any long random string. Protects the manual-trigger URL (`/run?key=…`) |
+| `DISCORD_WEBHOOK_URL` | Yes | Default channel webhook. Fallback for both alert types |
+| `DISCORD_X_WEBHOOK_URL` | No | X-post alerts channel. Falls back to the default above |
+| `DISCORD_MODELS_WEBHOOK_URL` | No | Model add/remove alerts channel. Falls back to the default above |
+| `DISCORD_PUBLIC_KEY` | For slash commands | Application → General Information → Public Key |
+| `DISCORD_APPLICATION_ID` | For slash commands | Application → General Information → Application ID |
 
-# Editing this README
+> For local development (`wrangler dev`), copy `.dev.vars.example` to `.dev.vars` and fill in your values. `.dev.vars` is gitignored and never uploaded.
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+### 5. Deploy
 
-## Suggestions for a good README
+```bash
+npx wrangler deploy
+```
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+Wrangler prints your Worker URL, e.g. `https://ai-hunter.YOURNAME.workers.dev`. From now on Cloudflare runs it at the start of every hour (UTC). To change the schedule, edit `crons` in `wrangler.toml` (cron syntax, UTC).
 
-## Name
-Choose a self-explaining name for your project.
+### 6. Test it
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+Open this in a browser:
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+```text
+https://ai-hunter.YOURNAME.workers.dev/run?key=YOUR_RUN_KEY
+```
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+**The first run never sends alerts.** It only saves a baseline. This is intentional — from the second run on, only real changes are posted.
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+To force a model alert (all current free models appear as "Added"):
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+```bash
+npx wrangler kv key put --binding=KV zen_free_models '[]' --remote
+```
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+Then open the `/run` URL again. (`free_models` and `infron_free_models` work the same way.)
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+To re-observe X posts:
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+```bash
+npx wrangler kv key put --binding=KV seen_posts '[]' --remote
+```
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+**Debugging:** run `npx wrangler tail` in one terminal, then open the `/run` URL. Errors appear in the log (e.g. Discord `404` = wrong webhook URL, `429` = rate limited).
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+## Slash-command setup (optional)
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+1. Go to the [Discord Developer Portal](https://discord.com/developers/applications) → **New Application** → name it (e.g. `Ai Hunter`).
+2. On the **General Information** page:
+   - Copy **Application ID** and **Public Key** → set them as secrets (see table above).
+   - Paste your Worker URL + `/interactions` into **Interactions Endpoint URL**, e.g. `https://ai-hunter.YOURNAME.workers.dev/interactions` → **Save Changes**. (If saving fails with "could not be verified", the Public Key secret is not set yet — set it first, wait ~30 seconds, save again.)
+3. Go to the **Bot** tab → **Reset Token** → copy the **Bot Token** (keep it private, never commit it).
+4. Register the commands from your own terminal (the token stays in your shell only):
 
-## License
-For open source projects, say how it is licensed.
+```powershell
+$env:DISCORD_APPLICATION_ID='<app id>'; $env:DISCORD_BOT_TOKEN='<bot token>'; npm run register-commands
+```
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+```bash
+DISCORD_APPLICATION_ID='<app id>' DISCORD_BOT_TOKEN='<bot token>' npm run register-commands
+```
+
+Expected output: `Registered: /free, /run, /watch`. Global commands can take up to ~1 hour to appear in Discord.
+
+## Configuration
+
+All tuning lives in the `SETTINGS` section at the top of `src/index.js`:
+
+| Setting | Purpose |
+| --- | --- |
+| `ACCOUNTS` | Built-in X handles (without `@`). Extra ones added via `/watch add` are stored in KV |
+| `FREE_SIG` / `MODEL_SIG` / `NEW_SIG` / `NOISE_SIG` | The post-relevance signals (see "Smart X-post filter" above) |
+| `INSTANCES` | Nitter/RSS instances, tried in order — they change often, update when they die |
+| `POST_MAX_AGE_MS` | Max post age (default: 24 hours) |
+| `BATCH` (in `checkX`) | Parallel RSS fetch batch size |
+
+KV keys used: `free_models`, `infron_free_models`, `zen_free_models`, `seen_posts`, `extra_accounts`, `x_source_down_at`.
+
+## Project structure
+
+```text
+ai-hunter/
+  src/index.js                 Worker code (watchers + X monitor + slash commands)
+  scripts/register-commands.mjs One-time Discord command registration (local only)
+  wrangler.toml                Cloudflare config (cron schedule, KV binding, observability)
+  package.json                 Scripts and dependencies
+  .dev.vars.example            Template for local secrets (copy to .dev.vars, never commit)
+  README.md
+```
+
+## Security
+
+- **No secrets in this repo.** Webhook URLs, bot tokens, `RUN_KEY`, and the Discord public key live only in Wrangler secrets / `.dev.vars` (gitignored).
+- `/run` is protected by `RUN_KEY` compared in constant time (`timingSafeEqual`).
+- The interactions endpoint verifies Discord's Ed25519 signature on the raw body.
+- If a webhook URL or token ever leaks (chat logs, screenshots), regenerate it in Discord and re-run the corresponding `wrangler secret put`.
+
+## Known limitations
+
+- **X data is the fragile part.** X has no free read API. This project uses public Nitter-style RSS instances, which are often slow or go offline. When all instances fail you get one "source down" message per day in the X channel. Find working instances (search for a Nitter-instances health tracker) and update `INSTANCES`.
+- Cloudflare's free plan allows a limited number of outbound requests per run (50). The X watcher fetches accounts in parallel batches to stay well under this.
+- Discord embeds hold up to 4096 characters — very long model lists are automatically split across multiple embeds.
+- Scraping X via third-party mirrors is a grey area under X's terms. Use it for personal monitoring only.
+
+## Changing things later
+
+Edit `src/index.js` (or settings), then:
+
+```bash
+npx wrangler deploy
+```

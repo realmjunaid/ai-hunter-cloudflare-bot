@@ -1,0 +1,22 @@
+name = "ai-hunter"
+main = "src/index.js"
+compatibility_date = "2026-10-08"
+compatibility_flags = ["nodejs_compat"]
+
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+
+[observability.traces]
+enabled = true
+head_sampling_rate = 0.01
+
+[triggers]
+crons = ["0 * * * *"]   # every hour, on the hour (UTC)
+
+[[kv_namespaces]]
+binding = "KV"
+id = "315ddb1b1db14e048f9e7062a27fc05b"

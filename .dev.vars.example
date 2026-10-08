@@ -1,0 +1,21 @@
+# Local development variables — COPY THIS FILE, NEVER COMMIT SECRETS
+# 1. Copy:  Copy-Item .dev.vars.example .dev.vars   (Windows)
+#           cp .dev.vars.example .dev.vars          (macOS/Linux)
+# 2. Fill in your own values below.
+# 3. `.dev.vars` is gitignored and only used by `wrangler dev`.
+#    Production secrets are set with:  npx wrangler secret put <NAME>
+
+# Manual-trigger protection for GET /run?key=... (any long random string)
+RUN_KEY=change-me-to-a-long-random-string
+
+# Discord channel webhooks (Server Settings → Integrations → Webhooks)
+# If the *_X / *_MODELS variants are not set, everything falls back to this one.
+DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_WEBHOOK_TOKEN
+# X-post alerts channel (optional if DISCORD_WEBHOOK_URL is set)
+DISCORD_X_WEBHOOK_URL=https://discord.com/api/webhooks/YOUR_X_WEBHOOK_ID/YOUR_X_WEBHOOK_TOKEN
+# Model add/remove alerts channel (optional if DISCORD_WEBHOOK_URL is set)
+DISCORD_MODELS_WEBHOOK_URL=https://discord.com/api/webhooks/YOUR_MODELS_WEBHOOK_ID/YOUR_MODELS_WEBHOOK_TOKEN
+
+# Discord Developer Portal → your Application → General Information
+DISCORD_PUBLIC_KEY=YOUR_APPLICATION_PUBLIC_KEY
+DISCORD_APPLICATION_ID=YOUR_APPLICATION_ID
