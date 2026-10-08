@@ -16,12 +16,10 @@ const ACCOUNTS = [
   "yohakujpn", "alannnfx", "artificialanlys", "calbuldelis69", "0x_kaize",
   "Forhanvv", "maruf_ix",
 ];
-// Post filter: alert only when a post talks about FREE MODEL/API ACCESS.
-// Needs (1) a free-access signal AND (2) a model/API or new-release signal,
-// so generic "feel free", hiring, webinar noise gets dropped.
+// Post filter: alert only when the SAME post has BOTH a free-access signal
+// AND an AI/model signal. Release/campaign words alone are not enough.
 const FREE_SIG = /free|gratis|\$0|zero[ -]?cost|credits?|trial|promo|giveaway|quota/i;
-const MODEL_SIG = /model|api\b|endpoint|inference|llm|playground|token|tier/i;
-const NEW_SIG = /new|launch|release|introduc|now (live|available|open|free)|just (drop|land|ship)|available|limited[ -]?time|preview|beta|free for|to try|try (now|it|free|out)|campaign|celebrat|anniversary|festival|holiday|black friday|christmas|diwali|eid|special (offer|deal|promo)|event/i;
+const MODEL_SIG = /model|api\b|llm|endpoint|inference|playground|token|tier|chatbot|\bai\b|gpt|claude|gemini|grok|deepseek|qwen|llama|mistral|kimi|glm|minimax|nemotron|ling|flux|whisper|dall|diffusion|openai|anthropic|openrouter|infron|groq|cerebras|together|fireworks|huggingface|nvidia|Muse|requesty|kilocode|chutes|sambanova|nous|hermes|unsloth/i;
 const NOISE_SIG = /hiring|webinar|podcast|meetup|birthday|airdrop|presale|congrat|pizza|swag|merch|t-shirt/i;
 const INSTANCES = [
   "https://nitter.jaydenha.uk",
@@ -42,7 +40,12 @@ export default {
     // Await directly so cron failures are visible in logs/traces.
     // runAll never throws (it settles internally), but keep a guard anyway.
     try {
-      await runAll(env);
+      // "5 * * * *" (hourly, :05) → X posts; everything else → model sites.
+      if (event.cron === "5 * * * *") {
+        await runXOnly(env);
+      } else {
+        await runSites(env);
+      }
     } catch (err) {
       console.error(
         JSON.stringify({
@@ -107,8 +110,7 @@ async function isValidKey(provided, expected) {
 export function isRelevantPost(title) {
   if (typeof title !== "string" || !title) return false;
   if (NOISE_SIG.test(title)) return false;
-  if (!FREE_SIG.test(title)) return false;
-  return MODEL_SIG.test(title) || NEW_SIG.test(title);
+  return FREE_SIG.test(title) && MODEL_SIG.test(title);
 }
 
 // ---------- Discord slash commands (/interactions) ----------
@@ -230,12 +232,21 @@ function hasBindings(env) {
 
 async function runAll(env) {
   if (!hasBindings(env)) return;
-  const results = await Promise.allSettled([
-    checkOpenRouter(env),
-    checkInfron(env),
-    checkZen(env),
-    checkX(env),
-  ]);
+  await runSites(env);
+  await runXOnly(env);
+}
+
+async function runSites(env) {
+  if (!hasBindings(env)) return;
+  logSettled(await Promise.allSettled([checkOpenRouter(env), checkInfron(env), checkZen(env)]));
+}
+
+async function runXOnly(env) {
+  if (!hasBindings(env)) return;
+  logSettled(await Promise.allSettled([checkX(env)]));
+}
+
+function logSettled(results) {
   for (const r of results) {
     if (r.status === "rejected") {
       console.error(

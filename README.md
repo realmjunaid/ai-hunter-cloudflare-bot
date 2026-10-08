@@ -15,13 +15,12 @@ Model alerts and X-post alerts can go to **two different Discord channels**.
 
 ### Smart X-post filter
 
-Instead of a single keyword, posts must pass a signal-based filter:
+Instead of a single keyword, a post must contain **both** in the same post:
 
 - **Free-access signal** — `free`, `$0`, `credits`, `trial`, `promo`, `quota`, …
-- **AND a model/API signal** (`model`, `api`, `endpoint`, `tier`, …) **or a release/campaign signal** (`launch`, `limited-time`, `campaign`, `anniversary`, `black friday`, …)
-- **Noise is rejected** — hiring, webinars, podcasts, giveaway spam, `feel free to …`
+- **AND an AI/model signal** — `model`, `api`, `llm`, `token`, … or a known name (`GPT`, `Claude`, `DeepSeek`, `Qwen`, `Groq`, `Llama`, `Kimi`, …)
 
-Only posts published in the **last 24 hours** are considered, so old posts never resurface.
+Posts about non-AI freebies (food delivery, music subscriptions, …), hiring, webinars, and giveaway spam are rejected. Only posts published in the **last 24 hours** are considered, so old posts never resurface.
 
 ### Discord slash commands
 
@@ -92,7 +91,7 @@ npx wrangler secret put DISCORD_WEBHOOK_URL
 npx wrangler deploy
 ```
 
-Wrangler prints your Worker URL, e.g. `https://ai-hunter.YOURNAME.workers.dev`. From now on Cloudflare runs it at the start of every hour (UTC). To change the schedule, edit `crons` in `wrangler.toml` (cron syntax, UTC).
+Wrangler prints your Worker URL, e.g. `https://ai-hunter.YOURNAME.workers.dev`. From now on Cloudflare runs the model-site checks every 30 minutes and the X check once an hour (UTC). To change the schedules, edit `crons` in `wrangler.toml` (cron syntax, UTC) and match the `event.cron` branch in the `scheduled` handler in `src/index.js`.
 
 ### 6. Test it
 

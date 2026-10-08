@@ -15,7 +15,9 @@ enabled = true
 head_sampling_rate = 0.01
 
 [triggers]
-crons = ["0 * * * *"]   # every hour, on the hour (UTC)
+# Sites (OpenRouter/Infron/Zen) every 30 min (:00, :30); X posts hourly (:05).
+# :05 is deliberately offset so the two schedules never fire together.
+crons = ["*/30 * * * *", "5 * * * *"]
 
 [[kv_namespaces]]
 binding = "KV"
